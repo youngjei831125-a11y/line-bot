@@ -1,3 +1,5 @@
+print("RUNNING CLEAN VERSION NO DB")
+
 from fastapi import FastAPI, Request, HTTPException
 import requests
 import json
