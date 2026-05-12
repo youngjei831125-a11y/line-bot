@@ -130,18 +130,19 @@ async def webhook(request: Request):
         source_type = source.get("type")
         reply_token = event["replyToken"]
         user_text = event["message"]["text"].strip()
-
+        # 群組自動翻譯：不用 / 也能翻
         if source_type == "group":
-            if not user_text.startswith("/"):
-                continue
-            text = user_text[1:].strip()
-            if not text:
-                reply_message(reply_token, "請在 / 後輸入要翻譯的內容")
-                continue
+            text = user_text
+
+            lang = detect_language(text)
+
+            if lang == "unknown":
+            continue
+
             translated = translate_text(text)
             reply_message(reply_token, translated)
             continue
-
+    
         translated = translate_text(user_text)
         reply_message(reply_token, translated)
 
