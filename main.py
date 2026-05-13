@@ -156,6 +156,7 @@ async def webhook(request: Request):
         source_type = source.get("type")
         reply_token = event["replyToken"]
         user_text = event["message"]["text"].strip()
+        user_text = re.sub(r'@\S+', '', user_text).strip()
 
         if user_text == "/id":
             user_id = source.get("userId")
