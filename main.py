@@ -141,7 +141,7 @@ async def webhook(request: Request):
             lang = detect_language(text)
 
             if lang == "unknown":
-            continue
+                continue
 
             translated = translate_text(text)
             reply_message(reply_token, translated)
