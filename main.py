@@ -17,6 +17,7 @@ app = FastAPI()
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+ADMIN_ID = "U1d601a0534de8026cab3701de2b33f13"
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 # ======== 語言辨識 ========
@@ -127,13 +128,37 @@ async def webhook(request: Request):
 
         if user_text == "/id":
             user_id = source.get("userId")
-
+            
             reply_message(
                 reply_token,
                 f"你的 user_id：\n{user_id}"
             )
             continue
+        if user_text.startswith("/vip "):
             
+            if source.get("userId") != ADMIN_ID:
+                reply_message(reply_token, "你沒有權限")
+                continue
+        
+            vip_id = user_text.replace("/vip ", "").strip()
+
+            conn = get_conn()
+            cur = conn.cursor()
+
+            cur.execute("""
+                INSERT INTO users (user_id, plan, used_today, last_used_date)
+                VALUES (%s, 'vip', 0, CURRENT_DATE)
+                ON CONFLICT (user_id)
+                DO UPDATE SET plan='vip'
+            """, (vip_id,))
+
+            conn.commit()
+            cur.close()
+            conn.close()
+
+            reply_message(reply_token, "VIP 開通成功")
+            continue
+    
         # 群組自動翻譯：不用 / 也能翻
         if source_type == "group":
             text = user_text
