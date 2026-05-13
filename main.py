@@ -124,6 +124,16 @@ async def webhook(request: Request):
         source_type = source.get("type")
         reply_token = event["replyToken"]
         user_text = event["message"]["text"].strip()
+
+        if user_text == "/id":
+            user_id = source.get("userId")
+
+            reply_message(
+                reply_token,
+                f"你的 user_id：\n{user_id}"
+            )
+            continue
+            
         # 群組自動翻譯：不用 / 也能翻
         if source_type == "group":
             text = user_text
