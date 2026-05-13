@@ -20,18 +20,6 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 # ======== 語言辨識 ========
-def detect_language(text):
-    thai = sum(1 for c in text if '\u0E00' <= c <= '\u0E7F')
-    zh = sum(1 for c in text if '\u4E00' <= c <= '\u9FFF')
-
-    if thai > 0:
-        return "th"
-
-    if zh > 0:
-        return "zh"
-
-    return "unknown"
-
 def verify_signature(body, signature):
     digest = hmac.new(
         LINE_CHANNEL_SECRET.encode("utf-8"),
@@ -49,6 +37,12 @@ def detect_language(text):
     if zh > 0:
         return "zh"
     return "unknown"
+# ======== 模型選擇 ========
+def choose_model(text):
+    if len(text) <= 30:
+        return "gpt-4.1-mini"
+
+    return "gpt-4.1"
 
 def translate_text(text):
     lang = detect_language(text)
@@ -72,7 +66,7 @@ def translate_text(text):
 
     try:
         res = client.responses.create(
-            model="gpt-4.1-mini",
+            model=choose_model(text),
             input=prompt
         )
         return res.output_text.strip()
