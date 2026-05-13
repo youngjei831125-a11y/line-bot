@@ -38,6 +38,24 @@ def get_conn():
         DATABASE_URL,
         cursor_factory=RealDictCursor
     )
+
+def init_db():
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            user_id TEXT PRIMARY KEY,
+            plan TEXT DEFAULT 'free',
+            used_today INTEGER DEFAULT 0,
+            last_used_date TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    conn.commit()
+    cur.close()
+    conn.close()
     
 def detect_language(text):
     thai = sum(1 for c in text if '\u0E00' <= c <= '\u0E7F')
@@ -95,6 +113,10 @@ def reply_message(token, text):
         "messages": [{"type": "text", "text": text[:5000]}]
     }
     requests.post(url, headers=headers, json=data)
+
+@app.on_event("startup")
+def startup():
+    init_db()
 
 @app.get("/")
 def home():
