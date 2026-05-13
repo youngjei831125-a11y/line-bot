@@ -7,6 +7,8 @@ import hmac
 import base64
 import hashlib
 import os
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from openai import OpenAI
 from dotenv import load_dotenv
 
@@ -18,6 +20,7 @@ LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 ADMIN_ID = "U1d601a0534de8026cab3701de2b33f13"
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 client = OpenAI(api_key=OPENAI_API_KEY)
 # ======== 語言辨識 ========
@@ -30,6 +33,12 @@ def verify_signature(body, signature):
     expected = base64.b64encode(digest).decode("utf-8")
     return hmac.compare_digest(expected, signature)
 
+def get_conn():
+    return psycopg2.connect(
+        DATABASE_URL,
+        cursor_factory=RealDictCursor
+    )
+    
 def detect_language(text):
     thai = sum(1 for c in text if '\u0E00' <= c <= '\u0E7F')
     zh = sum(1 for c in text if '\u4E00' <= c <= '\u9FFF')
