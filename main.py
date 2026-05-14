@@ -7,6 +7,7 @@ import hmac
 import base64
 import hashlib
 import os
+import re
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from openai import OpenAI
