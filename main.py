@@ -107,7 +107,6 @@ def translate_text(text):
 
     try:
         res = client.responses.create(
-            model=choose_model(text),
             model="gpt-4.1",
             input=prompt
         )
