@@ -12,6 +12,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from openai import OpenAI
 from dotenv import load_dotenv
+from time_guards import build_protected_facts_prompt, translation_breaks_time_facts
 
 load_dotenv()
 
@@ -70,15 +71,50 @@ def detect_language(text):
 def choose_model(text):
     return "gpt-4.1"
 
+def repair_time_translation(text, translated, rule, facts, target_lang):
+    protected_lines = []
+    for fact in facts:
+        target_hint = fact["thai"] if target_lang == "th" else fact["zh"]
+        protected_lines.append(f"- 「{fact['source']}」= {fact['canonical']}；必須譯為「{target_hint}」或保留 {fact['canonical']}。")
+
+    prompt = f"""
+上一版翻譯把受保護的時間資訊翻錯了。請重新翻譯，保持自然聊天語氣，但必須修正時間。
+
+{rule}
+
+受保護時間：
+{chr(10).join(protected_lines)}
+
+原文：
+{text}
+
+上一版翻譯：
+{translated}
+
+只輸出修正後的最終翻譯，不要解釋。
+"""
+
+    res = client.responses.create(
+        model=choose_model(text),
+        input=prompt,
+        temperature=0
+    )
+    return res.output_text.strip()
+
+
 def translate_text(text):
     lang = detect_language(text)
 
     if lang == "zh":
         rule = "翻譯成自然、準確、符合泰國日常溝通習慣的泰文"
+        target_lang = "th"
     elif lang == "th":
         rule = "翻譯成自然、準確、符合台灣使用習慣的繁體中文"
+        target_lang = "zh"
     else:
         return "目前只支援中文或泰文翻譯"
+
+    protected_facts_prompt, time_facts = build_protected_facts_prompt(text, lang, target_lang)
 
     prompt = f"""
 你是專業的繁體中文與泰文雙向翻譯員，專門翻譯 LINE 聊天、日常對話、情侶聊天、朋友玩笑與工作溝通。
@@ -102,6 +138,8 @@ def translate_text(text):
 13. 語氣詞優先使用「呀、喔、呢、嘛」。
 14. 除非原文明顯帶有強烈情緒，否則盡量避免使用「啊」。
 
+{protected_facts_prompt}
+
 {rule}
 
 原文：
@@ -110,10 +148,16 @@ def translate_text(text):
 
     try:
         res = client.responses.create(
-            model="gpt-4.1",
-            input=prompt
+            model=choose_model(text),
+            input=prompt,
+            temperature=0
         )
-        return res.output_text.strip()
+        translated = res.output_text.strip()
+        if translation_breaks_time_facts(translated, time_facts, target_lang):
+            fixed = repair_time_translation(text, translated, rule, time_facts, target_lang)
+            if not translation_breaks_time_facts(fixed, time_facts, target_lang):
+                return fixed
+        return translated
     except Exception as e:
         print("translate error:", e)
         return "翻譯服務暫時忙碌，請稍後再試。"
