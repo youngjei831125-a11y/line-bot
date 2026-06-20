@@ -12,6 +12,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from openai import OpenAI
 from dotenv import load_dotenv
+from style_guards import build_style_prompt, translation_breaks_style_facts
 from time_guards import build_protected_facts_prompt, translation_breaks_time_facts
 
 load_dotenv()
@@ -102,6 +103,37 @@ def repair_time_translation(text, translated, rule, facts, target_lang):
     return res.output_text.strip()
 
 
+def repair_style_translation(text, translated, rule, facts):
+    style_lines = []
+    for fact in facts:
+        avoid = "、".join(f"「{item}」" for item in fact["avoid"])
+        style_lines.append(f"- 「{fact['source']}」：{fact['hint']} 避免使用 {avoid}。")
+
+    prompt = f"""
+上一版翻譯的泰文聊天語氣或語意不自然。請重新翻譯，保持原意，但修正下面問題。
+
+{rule}
+
+自然翻譯提示：
+{chr(10).join(style_lines)}
+
+原文：
+{text}
+
+上一版翻譯：
+{translated}
+
+只輸出修正後的最終翻譯，不要解釋。
+"""
+
+    res = client.responses.create(
+        model=choose_model(text),
+        input=prompt,
+        temperature=0
+    )
+    return res.output_text.strip()
+
+
 def translate_text(text):
     lang = detect_language(text)
 
@@ -115,6 +147,7 @@ def translate_text(text):
         return "目前只支援中文或泰文翻譯"
 
     protected_facts_prompt, time_facts = build_protected_facts_prompt(text, lang, target_lang)
+    style_prompt, style_facts = build_style_prompt(text, lang, target_lang)
 
     prompt = f"""
 你是專業的繁體中文與泰文雙向翻譯員，專門翻譯 LINE 聊天、日常對話、情侶聊天、朋友玩笑與工作溝通。
@@ -140,6 +173,8 @@ def translate_text(text):
 
 {protected_facts_prompt}
 
+{style_prompt}
+
 {rule}
 
 原文：
@@ -156,7 +191,14 @@ def translate_text(text):
         if translation_breaks_time_facts(translated, time_facts, target_lang):
             fixed = repair_time_translation(text, translated, rule, time_facts, target_lang)
             if not translation_breaks_time_facts(fixed, time_facts, target_lang):
-                return fixed
+                translated = fixed
+        if translation_breaks_style_facts(translated, style_facts):
+            fixed = repair_style_translation(text, translated, rule, style_facts)
+            if (
+                not translation_breaks_time_facts(fixed, time_facts, target_lang)
+                and not translation_breaks_style_facts(fixed, style_facts)
+            ):
+                translated = fixed
         return translated
     except Exception as e:
         print("translate error:", e)
