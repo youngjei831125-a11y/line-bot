@@ -22,6 +22,7 @@ app = FastAPI()
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.4")
 ADMIN_ID = "U1d601a0534de8026cab3701de2b33f13"
 DATABASE_URL = os.getenv("DATABASE_URL")
 
@@ -70,7 +71,7 @@ def detect_language(text):
     return "unknown"
 # ======== 模型選擇 ========
 def choose_model(text):
-    return "gpt-4.1"
+    return OPENAI_MODEL
 
 def repair_time_translation(text, translated, rule, facts, target_lang):
     protected_lines = []
